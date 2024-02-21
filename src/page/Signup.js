@@ -35,7 +35,8 @@ const Signup = () => {
         <section>
             <div>
                 <div>                  
-                    <h1> FocusApp </h1>                                                                            
+                    <h1> GridGuardian </h1>  
+                    <h2>Create an Account to have access to grid data</h2>                                                                         .
                     <form>                                                                                            
                         <div>
                             <label htmlFor="email-address">

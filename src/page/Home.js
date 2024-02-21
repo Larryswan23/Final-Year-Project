@@ -1,175 +1,120 @@
-// Import necessary libraries and components
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { getFirestore, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../firebaseSetup/firebase';
-import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
-// Component for each square in the grid
-const GridSquare = ({ value, onClick, index, squareSize }) => {
-  // Style for the square
-  const style = {
-    width: `${squareSize}px`,
-    height: `${squareSize}px`,
-    border: '1px solid #ccc',
-    backgroundColor: getColor(value), // Set background color based on value
-    cursor: 'pointer',
-    opacity: 0.7, // Adjust the opacity (0 to 1)
-  };
+mapboxgl.accessToken = 'pk.eyJ1Ijoic3dhbmxhcnJ5MjMiLCJhIjoiY2xzYnB2dnAwMDl0YTJpbm95Nzc3N2EzdSJ9.s2J8b-FdV_H0d7mBnJuUOw';
 
-  // Function to determine color based on value
-  function getColor(value) {
-    if (value === 1) {
-      return 'red';
-    } else if (value === 2) {
-      return 'green';
-    } else {
-      return 'white';
-    }
-  }
-
-  // Render the square with the determined style
-  return <div style={style} onClick={() => onClick(index)}></div>;
-};
-
-// Component for the entire grid
-const Grid = ({ numRows, numCols, squareSize }) => {
-  // State for the grid data
-  const [grid, setGrid] = useState(Array.from({ length: numRows * numCols }, () => 0));
-
-  // Use effect to subscribe to changes in the grid data in Firestore
-  useEffect(() => {
-    const db = getFirestore();
-    const unsubscribe = onSnapshot(doc(db, 'Grid', 'values'), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data().values || Array.from({ length: numRows * numCols }, () => 0);
-        setGrid(data); // Update grid state with data from Firestore
-      }
-    });
-
-    return () => unsubscribe();
-  }, [numRows, numCols]);
-
-  const handleSquareClick = (index) => {
-    const db = getFirestore();
-    const squareRef = doc(db, 'Grid', 'values');
-    const newGrid = [...grid];
-    newGrid[index] = (newGrid[index] + 1) % 3; // Toggle the value of the clicked square
-  
-    // Filter out undefined values
-    const validGrid = newGrid.filter((value) => value !== undefined);
-  
-    setGrid(newGrid);
-  
-    // Update the data in Firestore with the new grid values
-    setDoc(squareRef, { values: validGrid });
-  };
-  
-
-  // Render the grid
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {Array.from({ length: numRows }).map((_, rowIndex) => (
-        <div key={rowIndex} style={{ display: 'flex' }}>
-          {Array.from({ length: numCols }).map((_, colIndex) => (
-            <GridSquare
-              key={colIndex}
-              value={grid[rowIndex * numCols + colIndex]}
-              index={rowIndex * numCols + colIndex}
-              onClick={handleSquareClick}
-              squareSize={squareSize}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// Component for the home page
 const Home = () => {
-  // State for the user data
+  const mapContainerRef = useRef(null);
   const [user, setUser] = useState(null);
-  const numRows = 8; // Adjust the number of rows
-  const numCols = 10; // Adjust the number of columns
-  const squareSize = 50; // Adjust the size of each grid square
+  const [gridData, setGridData] = useState(Array(400).fill(false));
+  const db = getFirestore();
 
-  // Use effect to subscribe to changes in the user authentication state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        const uid = user.uid;
-        setUser(user); // Set user state if logged in
-        console.log('uid', uid);
-      } else {
-        setUser(null); // Set user state to null if logged out
-        console.log('user is logged out');
+    const galwayCoordinates = [-9.0488, 53.25];
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: galwayCoordinates,
+      zoom: 12,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl());
+    const bounds = [-9.2, 53.2, -8.9, 53.4];
+    map.setMaxBounds(bounds);
+
+    const unsubscribe = onSnapshot(doc(db, "Grid", "values"), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data().values;
+        setGridData(data);
       }
     });
 
-    // Cleanup function to unsubscribe when the component unmounts
+    return () => {
+      map.remove();
+      unsubscribe();
+    };
+  }, [db]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
     return () => unsubscribe();
   }, []);
 
-  // Handle user logout
   const handleLogout = async () => {
     try {
       await signOut(auth);
       setUser(null);
-      console.log('User logged out');
     } catch (error) {
-      console.error('Error signing out', error);
+      console.error('Error signing out: ', error);
     }
   };
 
-  // Render the home page with user information and the grid component
-  return (
-    <section style={{ position: 'relative', width: `${numCols * squareSize}px` }}>
-      {/* Background Image */}
-      <img
-        src={process.env.PUBLIC_URL + '/images/GalwayBay.jpg'}
-        alt="Background"
-        style={{
-          position: 'absolute',
-          width: '100%',
-          height: '100%',
-          zIndex: -1,
-        }}
-      />
+  const toggleSquare = async (index) => {
+    if (!user) {
+      alert("You must be logged in to edit the grid.");
+      return;
+    }
 
-      <div>
+    const updatedGridData = [...gridData];
+    updatedGridData[index] = !updatedGridData[index];
+    try {
+      await updateDoc(doc(db, "Grid", "values"), { values: updatedGridData });
+    } catch (error) {
+      console.error('Error updating grid data: ', error);
+      alert("Failed to update the grid. Please try again.");
+    }
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#333', color: '#fff', padding: '10px' }}>
+        <h2>Galway</h2>
         {user ? (
-          <>
-            <p>Welcome, {user.email}! You are logged in.</p>
-            <button onClick={handleLogout}>Logout</button>
-          </>
+          <div>
+            <span>Welcome, {user.email}!</span>
+            <button onClick={handleLogout} style={{ marginLeft: '10px', background: 'red', color: '#fff', border: 'none', cursor: 'pointer' }}>Logout</button>
+          </div>
         ) : (
-          <p>You are not logged in.</p>
+          <span>Log in to edit and see grid data.</span>
         )}
-        <Grid numRows={numRows} numCols={numCols} squareSize={squareSize} />
       </div>
-    </section>
+      <section style={{ position: 'relative', height: 'calc(100vh - 40px)', overflow: 'hidden' }}>
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%', position: 'absolute' }}></div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(20, 1fr)',
+          gridTemplateRows: 'repeat(20, 1fr)',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: 'auto',
+        }}>
+          {gridData.map((isActive, index) => (
+            <div
+              key={index}
+              onClick={() => toggleSquare(index)}
+              style={{
+                border: '1px solid rgba(0, 0, 0, 0.2)',
+                backgroundColor: isActive ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 128, 0, 0.5)',
+                cursor: 'pointer',
+              }}
+            ></div>
+          ))}
+        </div>
+      </section>
+    </>
   );
 };
 
-// Export the Home component as the default export
 export default Home;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

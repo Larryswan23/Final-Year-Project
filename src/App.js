@@ -1,55 +1,73 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Navbar from 'react-bootstrap/Navbar';
 import Nav from 'react-bootstrap/Nav';
 import Button from 'react-bootstrap/Button';
-import Home from './page/Home';
-import Signup from './page/Signup';
-import Login from './page/Login';
-import FormComponent from './FormComponent';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './firebaseSetup/firebase'; // Adjust this import path to your Firebase auth setup
+import Home from './page/Home'; // Adjust the import path as needed
+import Signup from './page/Signup'; // Adjust the import path as needed
+import Login from './page/Login'; // Adjust the import path as needed
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
-  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
+  };
 
   return (
     <Router>
-      <div style={{ width: '100%' }}>
-        {/* Navbar */}
-        <Navbar bg="dark" variant="dark">
-          <Navbar.Brand as={Link} to="/">
-            FocusApp
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
-            <Nav className="ml-auto">
-              <Nav.Link as={Link} to="/">
-                <Button variant="outline-light">Home</Button>
-              </Nav.Link>
-              <Nav.Link as={Link} to="/login">
-                <Button variant="outline-light">Login</Button>
-              </Nav.Link>
-              <Nav.Link as={Link} to="/signup">
-                <Button variant="outline-light">Signup</Button>
-              </Nav.Link>
-            </Nav>
-          </Navbar.Collapse>
-        </Navbar>
+      <Navbar bg="dark" variant="dark" expand="lg" className="sticky-top">
+        <Navbar.Brand href="#home">GridGuardian</Navbar.Brand>
+        <Navbar.Toggle aria-controls="basic-navbar-nav" />
+        <Navbar.Collapse id="basic-navbar-nav">
+          <Nav className="mr-auto">
+            <Nav.Link as={Link} to="/">Home</Nav.Link>
+            
+            <Nav.Link as={Link} to="/signup" hidden={user}>Signup</Nav.Link>
+          </Nav>
+          <Nav>
+            {user ? (
+              <>
+                <Navbar.Text className="mr-2">
+                  Welcome, {user.email}!
+                </Navbar.Text>
+                <Button variant="outline-light" onClick={handleLogout}>Logout</Button>
+              </>
+            ) : (
+              <Nav.Link as={Link} to="/login">Login</Nav.Link>
+            )}
+          </Nav>
+        </Navbar.Collapse>
+      </Navbar>
 
-        {/* Routes */}
+      <div style={{ margin: '0 20px' }}>
         <Routes>
           <Route exact path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
         </Routes>
       </div>
-
-      <FormComponent
-        isFormVisible={isFormVisible}
-        toggleFormVisibility={setIsFormVisible}
-      />
     </Router>
   );
 }
 
 export default App;
+
+
 
