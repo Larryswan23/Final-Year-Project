@@ -9,6 +9,7 @@ import Home from './page/Home'; // Adjust the import path as needed
 import Signup from './page/Signup'; // Adjust the import path as needed
 import Login from './page/Login'; // Adjust the import path as needed
 import 'bootstrap/dist/css/bootstrap.min.css';
+import Kerry from './page/kerry';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -38,7 +39,7 @@ function App() {
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="mr-auto">
             <Nav.Link as={Link} to="/">Home</Nav.Link>
-            
+            <Nav.Link as={Link} to="/kerry">Kerry</Nav.Link>
             <Nav.Link as={Link} to="/signup" hidden={user}>Signup</Nav.Link>
           </Nav>
           <Nav>
@@ -61,6 +62,7 @@ function App() {
           <Route exact path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/kerry" element={<Kerry />} />
         </Routes>
       </div>
     </Router>
