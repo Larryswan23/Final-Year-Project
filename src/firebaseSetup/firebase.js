@@ -3,7 +3,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from 'firebase/auth';
 
-// Your web app's Firebase configuration
+
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDN92ukxV8OErTstq6TW9sA_7O_sIM-RSU",
